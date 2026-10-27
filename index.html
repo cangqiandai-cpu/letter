@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>手写信 · To Shadow</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Noto+Serif+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body {
+    font-family: 'Noto Serif SC', serif;
+    background: linear-gradient(135deg, #fdf6f0 0%, #f5ebe0 50%, #e8ddd4 100%);
+    min-height: 100vh;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  
+  body::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: 
+      radial-gradient(circle at 20% 30%, rgba(212, 165, 116, 0.15) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(193, 154, 107, 0.12) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  
+  /* 信封容器 */
+  .envelope-wrapper {
+    position: relative;
+    width: 520px;
+    height: 360px;
+    cursor: pointer;
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 10;
+  }
+  
+  .envelope-wrapper.opened {
+    transform: translateY(-60px);
+  }
+  
+  /* 信封主体 */
+  .envelope {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(145deg, #e6d5c3 0%, #d4c4b0 100%);
+    border-radius: 6px;
+    box-shadow: 
+      0 25px 50px -12px rgba(139, 119, 101, 0.35),
+      0 0 0 1px rgba(255,255,255,0.5) inset;
+    overflow: hidden;
+  }
+  
+  /* 信封封口 */
+  .envelope-flap {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    border-left: 260px solid transparent;
+    border-right: 260px solid transparent;
+    border-top: 180px solid #d9c7b3;
+    transform-origin: top center;
+    transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 5;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+  }
+  
+  .envelope-wrapper.opened .envelope-flap {
+    transform: rotateX(180deg);
+    z-index: 1;
+  }
+  
+  .envelope::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    border-left: 260px solid transparent;
+    border-right: 260px solid transparent;
+    border-bottom: 180px solid #c9b8a3;
+    opacity: 0.6;
+  }
+  
+  /* 火漆印章 */
+  .wax-seal {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60px;
+    height: 60px;
+    background: radial-gradient(circle at 35% 35%, #c9a87c, #8b6914);
+    border-radius: 50%;
+    box-shadow: 
+      0 4px 8px rgba(139, 105, 20, 0.4),
+      inset 0 2px 4px rgba(255,255,255,0.3);
+    z-index: 6;
+    transition: all 0.5s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Playfair Display', serif;
+    color: #5c4a2a;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: 1px;
+  }
+  
+  .envelope-wrapper.opened .wax-seal {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  
+  /* 信纸预览 */
+  .letter-paper {
+    position: absolute;
+    width: 480px;
+    height: 320px;
+    background: #faf6f0;
+    left: 20px;
+    bottom: 20px;
+    border-radius: 3px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 2;
+    overflow: hidden;
+  }
+  
+  .envelope-wrapper.opened .letter-paper {
+    transform: translateY(-280px);
+    transition-delay: 0.3s;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+  }
+  
+  .letter-content {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .page {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    transform: translateX(30px);
+    pointer-events: none;
+  }
+  
+  .page.active {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+  
+  .page.prev {
+    transform: translateX(-30px);
+  }
+  
+  .page img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 2px;
+  }
+  
+  /* 翻页按钮 */
+  .nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.85);
+    border: none;
+    color: #8b7355;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    transition: all 0.3s ease;
+    z-index: 20;
+    box-shadow: 0 2px 8px rgba(139, 115, 85, 0.2);
+  }
+  
+  .nav-btn:hover {
+    background: #fff;
+    transform: translateY(-50%) scale(1.1);
+  }
+  
+  .nav-btn.prev-btn { left: -55px; }
+  .nav-btn.next-btn { right: -55px; }
+  
+  .nav-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+  
+  /* 页码指示器 */
+  .page-indicator {
+    position: absolute;
+    bottom: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    transition-delay: 0.8s;
+  }
+  
+  .envelope-wrapper.opened .page-indicator {
+    opacity: 1;
+  }
+  
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #c9b8a3;
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+  
+  .dot.active {
+    background: #8b7355;
+    transform: scale(1.2);
+  }
+  
+  /* 音乐按钮 */
+  .music-btn {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.7);
+    backdrop-filter: blur(10px);
+    border: none;
+    color: #8b7355;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    z-index: 100;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(139, 115, 85, 0.15);
+  }
+  
+  .music-btn:hover {
+    background: #fff;
+    transform: scale(1.05);
+  }
+  
+  .music-btn.playing .icon {
+    animation: spin 3s linear infinite;
+    display: inline-block;
+  }
+  
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  
+  /* 提示文字 */
+  .hint {
+    position: absolute;
+    bottom: -50px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #a89078;
+    font-size: 14px;
+    font-style: italic;
+    white-space: nowrap;
+    transition: opacity 0.5s ease;
+    font-family: 'Playfair Display', serif;
+  }
+  
+  .envelope-wrapper.opened .hint {
+    opacity: 0;
+  }
+  
+  /* 标题 */
+  .title-deco {
+    position: fixed;
+    top: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    z-index: 5;
+  }
+  
+  .title-deco h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    color: #8b7355;
+    font-weight: 400;
+    letter-spacing: 3px;
+  }
+  
+  .title-deco p {
+    font-size: 12px;
+    color: #b8a896;
+    margin-top: 6px;
+    letter-spacing: 2px;
+  }
+  
+  /* 展开后的大信纸 */
+  .letter-container {
+    position: relative;
+    display: none;
+    animation: fadeIn 0.8s ease;
+  }
+  
+  .letter-container.show {
+    display: block;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  .letter-full {
+    width: 520px;
+    height: 700px;
+    background: #faf6f0;
+    border-radius: 4px;
+    box-shadow: 
+      0 30px 60px -15px rgba(139, 119, 101, 0.3),
+      0 0 0 1px rgba(255,255,255,0.8) inset;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  /* 信纸装订线效果 */
+  .letter-full::before {
+    content: '';
+    position: absolute;
+    left: 45px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(200, 180, 160, 0.5);
+    z-index: 2;
+  }
+  
+  .letter-full .page {
+    padding: 25px 30px 25px 60px;
+  }
+  
+  .letter-full .page img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  
+  .letter-date {
+    position: absolute;
+    bottom: 18px;
+    right: 30px;
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    color: #b8a896;
+    font-size: 13px;
+    z-index: 3;
+  }
+  
+  @media (max-width: 640px) {
+    .envelope-wrapper {
+      width: 340px;
+      height: 240px;
+    }
+    .envelope-flap {
+      border-left-width: 170px;
+      border-right-width: 170px;
+      border-top-width: 120px;
+    }
+    .envelope::before {
+      border-left-width: 170px;
+      border-right-width: 170px;
+      border-bottom-width: 120px;
+    }
+    .letter-paper {
+      width: 310px;
+      height: 210px;
+      left: 15px;
+      bottom: 15px;
+    }
+    .letter-full {
+      width: 340px;
+      height: 480px;
+    }
+    .envelope-wrapper.opened .letter-paper {
+      transform: translateY(-180px);
+    }
+    .nav-btn.prev-btn { left: -40px; }
+    .nav-btn.next-btn { right: -40px; }
+    .title-deco h1 { font-size: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="title-deco">
+  <h1>Handwritten Letter</h1>
+  <p>FROM CHIYO · TO SHADOW</p>
+</div>
+
+<button class="music-btn" id="musicBtn" title="播放/暂停音乐">
+  <span class="icon">♪</span>
+</button>
+
+<!-- 信封阶段 -->
+<div class="envelope-wrapper" id="envelope">
+  <div class="envelope">
+    <div class="envelope-flap"></div>
+  </div>
+  <div class="wax-seal">C</div>
+  
+  <div class="letter-paper">
+    <div class="letter-content">
+      <div class="page active"><img src="page1.jpg" alt="第1页"></div>
+      <div class="page"><img src="page2.jpg" alt="第2页"></div>
+      <div class="page"><img src="page3.jpg" alt="第3页"></div>
+      <div class="page"><img src="page4.jpg" alt="第4页"></div>
+      <div class="page"><img src="page5.jpg" alt="第5页"></div>
+    </div>
+    <div class="page-indicator">
+      <span class="dot active"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+    </div>
+  </div>
+  
+  <p class="hint">点击信封打开</p>
+</div>
+
+<!-- 展开后的大信纸 -->
+<div class="letter-container" id="letterContainer">
+  <button class="nav-btn prev-btn" id="prevBtn">‹</button>
+  <div class="letter-full">
+    <div class="letter-content">
+      <div class="page active"><img src="page1.jpg" alt="第1页"></div>
+      <div class="page"><img src="page2.jpg" alt="第2页"></div>
+      <div class="page"><img src="page3.jpg" alt="第3页"></div>
+      <div class="page"><img src="page4.jpg" alt="第4页"></div>
+      <div class="page"><img src="page5.jpg" alt="第5页"></div>
+    </div>
+    <div class="letter-date">Oct. 25</div>
+  </div>
+  <button class="nav-btn next-btn" id="nextBtn">›</button>
+  
+  <div class="page-indicator" style="bottom: -40px; opacity: 1;">
+    <span class="dot active"></span>
+    <span class="dot"></span>
+    <span class="dot"></span>
+    <span class="dot"></span>
+    <span class="dot"></span>
+  </div>
+</div>
+
+<!-- 背景音乐（默认使用一首温柔钢琴曲，可自行替换链接） -->
+<audio id="bgm" loop>
+  <source src="https://music.163.com/song/media/outer/url?id=1901371647.mp3" type="audio/mpeg">
+
+
+<script>
+  const envelope = document.getElementById('envelope');
+  const letterContainer = document.getElementById('letterContainer');
+  const musicBtn = document.getElementById('musicBtn');
+  const bgm = document.getElementById('bgm');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  
+  let currentPage = 0;
+  const totalPages = 5;
+  let isOpened = false;
+  
+  // 信封打开动画
+  envelope.addEventListener('click', () => {
+    if (isOpened) return;
+    isOpened = true;
+    envelope.classList.add('opened');
+    
+    // 播放背景音乐
+    bgm.volume = 0.4;
+    bgm.play().catch(() => {});
+    musicBtn.classList.add('playing');
+    
+    // 动画完成后切换到大信纸模式
+    setTimeout(() => {
+      envelope.style.display = 'none';
+      letterContainer.classList.add('show');
+      updateDots();
+    }, 1200);
+  });
+  
+  // 音乐开关
+  musicBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (bgm.paused) {
+      bgm.play();
+      musicBtn.classList.add('playing');
+    } else {
+      bgm.pause();
+      musicBtn.classList.remove('playing');
+    }
+  });
+  
+  // 翻页逻辑
+  function goToPage(page) {
+    if (page < 0 || page >= totalPages) return;
+    
+    document.querySelectorAll('.letter-content').forEach(content => {
+      const pages = content.querySelectorAll('.page');
+      pages.forEach((p, i) => {
+        p.classList.remove('active', 'prev');
+        if (i === page) p.classList.add('active');
+        else if (i < page) p.classList.add('prev');
+      });
+    });
+    
+    currentPage = page;
+    updateDots();
+    updateButtons();
+  }
+  
+  function nextPage() {
+    if (currentPage < totalPages - 1) goToPage(currentPage + 1);
+  }
+  
+  function prevPage() {
+    if (currentPage > 0) goToPage(currentPage - 1);
+  }
+  
+  function updateDots() {
+    document.querySelectorAll('.dot').forEach((dot, i) => {
+      dot.classList.toggle('active', i === currentPage);
+    });
+  }
+  
+  function updateButtons() {
+    prevBtn.disabled = currentPage === 0;
+    nextBtn.disabled = currentPage === totalPages - 1;
+  }
+  
+  prevBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    prevPage();
+  });
+  
+  nextBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    nextPage();
+  });
+  
+  // 点击小圆点跳页
+  document.querySelectorAll('.dot').forEach((dot, i) => {
+    dot.addEventListener('click', (e) => {
+      e.stopPropagation();
+      goToPage(i);
+    });
+  });
+  
+  // 键盘翻页
+  document.addEventListener('keydown', (e) => {
+    if (!isOpened) return;
+    if (e.key === 'ArrowLeft') prevPage();
+    if (e.key === 'ArrowRight') nextPage();
+  });
+  
+  // 触屏滑动翻页
+  let touchStartX = 0;
+  letterContainer.addEventListener('touchstart', e => {
+    touchStartX = e.changedTouches[0].screenX;
+  });
+  letterContainer.addEventListener('touchend', e => {
+    const diff = touchStartX - e.changedTouches[0].screenX;
+    if (Math.abs(diff) > 50) {
+      diff > 0 ? nextPage() : prevPage();
+    }
+  });
+  
+  updateButtons();
+</script>
+
+</body>
+</html>
